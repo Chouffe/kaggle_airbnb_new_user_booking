@@ -12,6 +12,11 @@ I used the Anaconda 2 distrib to get started with python packages
 * seaborn
 * Xgboost
 
+## Datasets
+
+The datasets are too large to fit on a github repositoty.
+You can access them [here](https://www.kaggle.com/c/airbnb-recruiting-new-user-bookings/data)
+
 ## Report
 
 located in report/capstone.pdf
