@@ -5,32 +5,52 @@ from sklearn.ensemble import RandomForestClassifier
 from xgboost.sklearn import XGBClassifier
 
 from data_preparation import load_data, prepare_datasets
-from data_transformation import make_scaler, make_transformer
+from data_transformation import feature_transformation
 
 
+# Path for the submission.csv file
 SUBMISSION_PATH = '../submissions/'
 
 # RandomForestClassifier parameters.
-ESTIMATORS_RF, CRITERION_RF, DEPTH_RF, MIN_LEAF_RF, JOBS_RF = (
-    500, 'gini', 20, 8, 30)
+ESTIMATORS_RF = 500
+CRITERION_RF = 'gini'
+JOBS_RF = -1
+DEPTH_RF = 20
+MIN_LEAF_RF = 8
+MIN_SPLIT_RF = 2
+MAX_FEATURES_RF = 'sqrt'
 
-# Find these parameters with random search grid
+# XGBOOST Classifier parameters
+ESTIMATORS_XG = 500
+OBJECTIVE_XG = 'multi:softprob'
+DEPTH_XG = 6
+LEARNING_RATE_XG = 0.3
+SUBSAMPLE_XG = 0.5
+COLSAMPLE_BYTREE_XG = 0.5
 
 
-def train_classifier(X, y):
-    # clf = XGBClassifier(max_depth=DEPTH_XGB,
-    #                     learning_rate=LEARNING_XGB,
-    #                     n_estimators=ESTIMATORS_XGB,
-    #                     objective='multi:softprob',
-    #                     subsample=SUBSAMPLE_XGB,
-    #                     colsample_bytree=COLSAMPLE_XGB)
-    clf = RandomForestClassifier(
-        n_estimators=ESTIMATORS_RF,
-        criterion=CRITERION_RF,
-        n_jobs=JOBS_RF,
-        max_depth=DEPTH_RF,
-        min_samples_leaf=MIN_LEAF_RF,
-        bootstrap=True)
+def train_classifier(X, y, clf_name='xgb'):
+    if clf_name == 'xgb':
+        clf = XGBClassifier(
+            n_estimators=ESTIMATORS_XG,
+            objective=OBJECTIVE_XG,
+            max_depth=DEPTH_XG,
+            learning_rate=LEARNING_RATE_XG,
+            subsample=SUBSAMPLE_XG,
+            colsample_bytree=COLSAMPLE_BYTREE_XG,
+            seed=0,
+        )
+    else:
+        clf = RandomForestClassifier(
+            n_estimators=ESTIMATORS_RF,
+            criterion=CRITERION_RF,
+            n_jobs=JOBS_RF,
+            max_depth=DEPTH_RF,
+            min_samples_leaf=MIN_LEAF_RF,
+            min_samples_split=MIN_SPLIT_RF,
+            max_features=MAX_FEATURES_RF,
+            bootstrap=True,
+        )
     clf.fit(X, y)
     return clf
 
@@ -69,13 +89,16 @@ def generate_submission(clf, X_test, label_encoder, ids,
     return df_sub
 
 
-def main(generate='submission'):
+def main(generate='xgb', scaling=False):
     """ Runs the different processing steps to generate a
     solution in csv format"""
+
     print("loading data in memory...")
     (df_train, target, df_test) = load_data()
+
     print("preparing datasets...")
     (X, y, X_test, label_encoder) = prepare_datasets(df_train, df_test, target)
+
     if generate == 'benchmark1':
         print("Generating submission...")
         return generate_benchmark1_submission(df_train,
@@ -87,23 +110,18 @@ def main(generate='submission'):
                                               target,
                                               df_test['id'])
     else:
-        print("feature transformation...")
-        print("Projection using PCA...")
-        transformer = make_transformer(X)
-        X_transformed = transformer.transform(X)
-        X_test_transformed = transformer.transform(X_test)
-        print("Scaling...")
-        scaler = make_scaler(X_transformed)
-        X_transformed_and_scaled = scaler.transform(X_transformed)
-        X_test_transformed_and_scaled = scaler.transform(X_test_transformed)
+        if scaling:
+            print("Transforming datasets...")
+            (X, scaler, transformer) = feature_transformation(X)
+            X_test = transformer.transform(scaler.transform(X_test))
+
         print("Training classifier...")
-        clf = train_classifier(X_transformed_and_scaled, y)
+        clf = train_classifier(X, y)
+
         print("Generating submission...")
-        return generate_submission(clf,
-                                   X_test_transformed_and_scaled,
-                                   label_encoder,
-                                   df_test['id'])
+        return generate_submission(
+            clf, X_test, label_encoder, df_test['id'], clf_name=generate)
 
 
-if __name__ == 'main':
-    main()
+if __name__ == '__main__':
+    main(generate='xgb')

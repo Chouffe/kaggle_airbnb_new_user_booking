@@ -17,7 +17,7 @@ def split_data(X, y):
 
 
 def make_transformer(X):
-    pca = PCA(n_components=.94)
+    pca = PCA(n_components=.99)
     pca.fit(X)
     return pca
 
@@ -26,6 +26,21 @@ def make_scaler(X):
     scaler = StandardScaler()
     scaler.fit(X)
     return scaler
+
+
+def feature_transformation(X):
+    """ Performs feature transformation on the data X
+
+    - Data scaling with scaler
+    - Data reduction with transformer
+
+    Returns the new data X_transformed that is scaled and projected onto a smaller subspace"""
+
+    scaler = make_scaler(X)
+    X_scaled = scaler.transform(X)
+    transformer = make_transformer(X_scaled)
+    X_transformed = transformer.transform(X_scaled)
+    return (X_transformed, scaler, transformer)
 
 
 # XGBoost parameters.
@@ -55,33 +70,6 @@ def get_classifier(X, y):
         bootstrap=True)
     clf.fit(X, y)
     return clf
-
-
-def score_classifier(clf, X_test, y_test):
-    probabilities = clf.predict_proba(X_test)
-    return ndcg_score(y_test, probabilities, k=5)
-
-
-def generate_submission(clf, X_test, label_encoder, ids,
-                        output_filename='submission.csv'):
-    y_pred = clf.predict_proba(X_test)
-    # Taking the 5 classes with highest probabilities
-    ids_result = []  # list of ids
-    cts = []         # list of countries
-    for i in range(len(ids)):
-        idx = ids[i]
-        ids_result += [idx] * 5
-        cts += label_encoder.inverse_transform(
-            np.argsort(y_pred[i])[::-1])[:5].tolist()
-    # Generate submission
-    sub = pd.DataFrame(np.column_stack((ids_result, cts)),
-                       columns=['id', 'country'])
-    sub.to_csv(output_filename, index=False)
-    return sub
-
-
-
-
 
 
 # transformer = make_transformer(X_tr)
